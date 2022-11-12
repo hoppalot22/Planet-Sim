@@ -79,6 +79,8 @@ class World:
         self.ID = str(len(worlds))
         self.frameNum = 0
         self.largestBody = None
+        self.totalKineticEnergy = 0
+        self.totalMomentum = 0
 
         self.mousePos = Vector2(0,0)
         self.window = tk.Tk()
@@ -90,7 +92,22 @@ class World:
         self.canvas.bind("<MouseWheel>", self.Zoom)
         self.canvas.pack()
 
+    def CalcMomentum(self):
+        result = 0
+        for body in self.bodies:
+            result += body.mass * VectorMag(body.velocity)
+        return result
+
+    def CalcEnergy(self):
+        result = 0
+        for body in self.bodies:
+            result += body.mass * VectorMag(body.velocity)*VectorMag(body.velocity) / 2
+        return result
+
     def Tick(self):
+
+        self.totalKineticEnergy = round(self.CalcEnergy(),2)
+        self.totalMomentum = round(self.CalcMomentum(),2)
 
         for body in self.bodies:
             body.UpdateAccel()
@@ -153,6 +170,8 @@ class World:
             self.canvas.create_line(30,30,30 + arrow_coords.x, 30 + arrow_coords.y)
             self.canvas.create_oval(26,26,34,34, fill='red')
 
+        self.canvas.create_text(70, 50, text = f"Total Kinetic Energy: {self.totalKineticEnergy}")
+        self.canvas.create_text(70, 70, text=f"Total Momentum: {self.totalMomentum}")
 class MassBody:
     def __init__(self, mass, position=None, size=0, velocity=None, shape="circle"):
         if position is None:
@@ -226,11 +245,11 @@ class MassBody:
 
 
 def Main():
-    myWorld = World(gravity=1, speed=10)
+    myWorld = World(gravity=5, speed=2)
     # myWorld.AddBody(MassBody(5, position=[700, 500], velocity=[0, 0]))
     #myWorld.AddBody(MassBody(20, position=[700, 500], velocity=[0, 0]))
     for i in range(5):
-        myWorld.AddBody(MassBody(random.randrange(1, 5), position=[200*i, 800], velocity=[0, 0]))
+        myWorld.AddBody(MassBody(random.randrange(1, 5), position=[200*i, 800], velocity=[random.randrange(0,100)/50, 0]))
     #myWorld.AddBody(MassBody(20, position=[900, 600], velocity=[0, 1]))
     #myWorld.AddBody(MassBody(20, position=[800, 500], velocity=[0, 1]))
     myWorld.AddBody(MassBody(100, position=[500, 500], velocity=[0, 0]))
