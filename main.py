@@ -205,11 +205,12 @@ class MassBody:
                         bodyVelocityMag = VectorMag(body.velocity)
 
                         M1 = self.mass * selfVelocityMag + bodyVelocityMag * body.mass
+                        K1 = (self.mass * selfVelocityMag * selfVelocityMag + bodyVelocityMag * bodyVelocityMag * body.mass)/2
 
                         #print(M1)
 
-                        new_body_velocity = M1/body.mass/2
-                        new_self_velocity = M1/self.mass/2
+                        new_body_velocity = math.sqrt(K1/2/body.mass)/2 + M1/4/body.mass
+                        new_self_velocity = math.sqrt(K1/2/self.mass)/2 + M1/4/self.mass
 
                         self.position -= self.velocity
                         body.position -= body.velocity
@@ -225,13 +226,13 @@ class MassBody:
 
 
 def Main():
-    myWorld = World(gravity=5, speed=2)
+    myWorld = World(gravity=1, speed=10)
     # myWorld.AddBody(MassBody(5, position=[700, 500], velocity=[0, 0]))
-    myWorld.AddBody(MassBody(20, position=[700, 500], velocity=[0, 0]))
+    #myWorld.AddBody(MassBody(20, position=[700, 500], velocity=[0, 0]))
     for i in range(5):
-        myWorld.AddBody(MassBody(random.randrange(5, 15), position=[200*i, 800], velocity=[0, 0]))
-    myWorld.AddBody(MassBody(20, position=[900, 600], velocity=[0, 1]))
-    myWorld.AddBody(MassBody(20, position=[800, 500], velocity=[0, 1]))
+        myWorld.AddBody(MassBody(random.randrange(1, 5), position=[200*i, 800], velocity=[0, 0]))
+    #myWorld.AddBody(MassBody(20, position=[900, 600], velocity=[0, 1]))
+    #myWorld.AddBody(MassBody(20, position=[800, 500], velocity=[0, 1]))
     myWorld.AddBody(MassBody(100, position=[500, 500], velocity=[0, 0]))
 
     myWorld.Tick()
