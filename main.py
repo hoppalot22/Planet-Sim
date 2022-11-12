@@ -8,25 +8,6 @@ import tkinter as tk
 running = True
 worlds = []
 
-
-def VectorMag(vector):
-    mag = 0
-    for component in vector:
-        mag = math.sqrt(mag * mag + component * component)
-    return mag
-
-
-def VectorNorm(vector):
-    mag = VectorMag(vector)
-    if mag == 0:
-        return Vector2(0,0)
-    return Vector2(vector.x/mag, vector.y/mag)
-
-
-def VectorDot(vec1, vec2):
-    return vec1.x*vec2.x+vec1.y*vec2.y
-
-
 class Vector2:
     def __init__(self, x, y):
 
@@ -64,6 +45,20 @@ class Vector2:
     def __truediv__(self, other):
         return Vector2(self.x / other, self.y / other)
 
+    def VectorMag(self):
+        mag = 0
+        for component in self:
+            mag = math.sqrt(mag * mag + component * component)
+        return mag
+
+    def VectorNorm(self):
+        mag = self.VectorMag()
+        if mag == 0:
+            return Vector2(0, 0)
+        return Vector2(self.x / mag, self.y / mag)
+
+    def VectorDot(self, vec2):
+        return self.x * vec2.x + self.y * vec2.y
 
 class World:
     def __init__(self, gravity=0.01, speed=1, boundaries=None):
@@ -93,15 +88,16 @@ class World:
         self.canvas.pack()
 
     def CalcMomentum(self):
-        result = 0
+        result = Vector2(0,0)
         for body in self.bodies:
-            result += body.mass * VectorMag(body.velocity)
+            result += body.velocity * body.mass
+        result = result.VectorMag()
         return result
 
     def CalcEnergy(self):
         result = 0
         for body in self.bodies:
-            result += body.mass * VectorMag(body.velocity)*VectorMag(body.velocity) / 2
+            result += body.mass * body.velocity.VectorMag() * body.velocity.VectorMag() / 2
         return result
 
     def Tick(self):
@@ -161,12 +157,12 @@ class World:
             self.canvas.create_oval(body.position[0] - body.mass, body.position[1] - body.mass,
                                     body.position[0] + body.mass, body.position[1] + body.mass)
             if not (body.acceleration[0] == 0 and body.acceleration[1] == 0):
-                self.canvas.create_line(body.position[0], body.position[1],body.position[0]+max(20,body.mass)*body.acceleration[0]/VectorMag(body.acceleration), body.position[1]+max(20,body.mass)*body.acceleration[1]/VectorMag(body.acceleration), fill='blue')
+                self.canvas.create_line(body.position[0], body.position[1],body.position[0]+max(20,body.mass)*body.acceleration[0]/body.acceleration.VectorMag(), body.position[1]+max(20,body.mass)*body.acceleration[1]/body.acceleration.VectorMag(), fill='blue')
             if not (body.velocity[0] == 0 and body.velocity[1] == 0):
-                self.canvas.create_line(body.position[0], body.position[1],body.position[0]+max(20,body.mass)*body.velocity[0]/VectorMag(body.velocity), body.position[1]+max(20,body.mass)*body.velocity[1]/VectorMag(body.velocity), fill='green')
+                self.canvas.create_line(body.position[0], body.position[1],body.position[0]+max(20,body.mass)*body.velocity[0]/body.velocity.VectorMag(), body.position[1]+max(20,body.mass)*body.velocity[1]/body.velocity.VectorMag(), fill='green')
         if self.largestBody is not None:
             #print("drawing")
-            arrow_coords = VectorNorm(self.largestBody.position)*20
+            arrow_coords = self.largestBody.position.VectorNorm()*20
             self.canvas.create_line(30,30,30 + arrow_coords.x, 30 + arrow_coords.y)
             self.canvas.create_oval(26,26,34,34, fill='red')
 
@@ -200,45 +196,35 @@ class MassBody:
             if body is self:
                 continue
             relPos = body.position - self.position
-            if VectorMag(relPos) < 0.8 * (self.mass + body.mass):
+            if relPos.VectorMag() < 0.8 * (self.mass + body.mass):
                 continue
-            accelScalar = self.world.gravity * body.mass / (VectorMag(relPos)) / (VectorMag(relPos))
-            self.acceleration += VectorNorm(relPos) * accelScalar
+            accelScalar = self.world.gravity * body.mass / relPos.VectorMag() / relPos.VectorMag()
+            self.acceleration += relPos.VectorNorm() * accelScalar
 
     def CheckCollision(self):
         for body in self.world.bodies:
-            if int(body.ID) >= int(self.ID):
+            if(body.mass>self.mass):
                 continue
-            else:
+            if (body.mass == self.mass):
+                if int(body.ID) >= int(self.ID):
+                    continue
+
                 #print("calling")
-                if self.shape == "circle" and body.shape == "circle":
-                    relPos = body.position - self.position
-                    if self.mass + body.mass > VectorMag(relPos):
-                        # print(f"Planet {self.ID} has collied with planet {body.ID}")
+            if self.shape == "circle" and body.shape == "circle":
+                relPos = body.position - self.position
+                if self.mass + body.mass > relPos.VectorMag():
+                    # print(f"Planet {self.ID} has collied with planet {body.ID}")
 
-                        normal = VectorNorm(relPos)
-                        reflectedSelfVector = VectorNorm(self.velocity - normal * 2 * VectorDot(self.velocity, normal))
-                        reflectedBodyVector = VectorNorm(body.velocity + normal * 2 * VectorDot(body.velocity, normal*-1))
+                    normal = relPos.VectorNorm()
+                    delVelocity = self.velocity - body.velocity
+                    reflectedSelfVector = normal * 2 * body.mass/(self.mass + body.mass)*delVelocity.VectorDot(normal)
+                    reflectedBodyVector = normal * -2 * self.mass/(self.mass + body.mass)*delVelocity.VectorDot(normal)
 
-                        selfVelocityMag = VectorMag(self.velocity)
-                        bodyVelocityMag = VectorMag(body.velocity)
+                    self.velocity -= reflectedSelfVector# * -direction
+                    body.velocity -= reflectedBodyVector
 
-                        M1 = self.mass * selfVelocityMag + bodyVelocityMag * body.mass
-                        K1 = (self.mass * selfVelocityMag * selfVelocityMag + bodyVelocityMag * bodyVelocityMag * body.mass)/2
-
-                        #print(M1)
-
-                        new_body_velocity = math.sqrt(K1/2/body.mass)/2 + M1/4/body.mass
-                        new_self_velocity = math.sqrt(K1/2/self.mass)/2 + M1/4/self.mass
-
-                        self.position -= self.velocity
-                        body.position -= body.velocity
-
-                        self.velocity = reflectedSelfVector * new_self_velocity# * 0.95
-                        body.velocity = reflectedBodyVector * new_body_velocity# * 0.95
-
-                        self.position -= normal
-                        body.position += normal
+                    self.position -= normal
+                    body.position += normal
 
         return None, None
 
@@ -246,13 +232,13 @@ class MassBody:
 
 def Main():
     myWorld = World(gravity=5, speed=2)
-    # myWorld.AddBody(MassBody(5, position=[700, 500], velocity=[0, 0]))
-    #myWorld.AddBody(MassBody(20, position=[700, 500], velocity=[0, 0]))
+    myWorld.AddBody(MassBody(5, position=[700, 500], velocity=[-1, 0]))
+    myWorld.AddBody(MassBody(5, position=[800, 800], velocity=[-1, 0]))
     for i in range(5):
         myWorld.AddBody(MassBody(random.randrange(1, 5), position=[200*i, 800], velocity=[random.randrange(0,100)/50, 0]))
-    #myWorld.AddBody(MassBody(20, position=[900, 600], velocity=[0, 1]))
-    #myWorld.AddBody(MassBody(20, position=[800, 500], velocity=[0, 1]))
-    myWorld.AddBody(MassBody(100, position=[500, 500], velocity=[0, 0]))
+    myWorld.AddBody(MassBody(20, position=[900, 600], velocity=[0, 1]))
+    myWorld.AddBody(MassBody(20, position=[800, 500], velocity=[0, 1]))
+    myWorld.AddBody(MassBody(100, position=[500, 500], velocity=[-0, 0]))
 
     myWorld.Tick()
     myWorld.window.mainloop()
